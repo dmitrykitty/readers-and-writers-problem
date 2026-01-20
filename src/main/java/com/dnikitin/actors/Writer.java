@@ -13,25 +13,20 @@ public class Writer extends Thread {
     public void run() {
         while (true) {
             try {
-                System.out.println(getName() + ": Want to enter to the library.");
-                library.startReading();
+                int writingTime = 1000 + (int)(Math.random() * 2001);
+                library.startWriting(writingTime);
 
-                int timeToRead = 1000 + (int)(Math.random() * 2000);
-                System.out.println(getName() + ": Writing " + timeToRead + " ms.");
 
-                System.out.println(getName() + ": Going out.");
+                Thread.sleep(writingTime);
 
-                library.stopReading();
+                library.stopWriting();
                 Thread.sleep(restingTime);
 
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                Thread.currentThread().interrupt();
+                break;
             }
         }
-
     }
 
-    private void printAction(String action) {
-        System.out.println("[ " + action + " ]" );
-    }
 }

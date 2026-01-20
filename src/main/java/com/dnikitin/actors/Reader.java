@@ -13,24 +13,19 @@ public class Reader extends Thread {
     public void run() {
         while (true) {
             try {
-                printAction(getName() + ": Want to enter to the library.");
-                library.startReading();
+                int readingTime = 1000 + (int)(Math.random() * 2001);
+                library.startReading(readingTime);
 
-                int timeToRead = 1000 + (int)(Math.random() * 2000);
-                printAction(getName() + ": Reading for " + timeToRead + " ms.");
-
+                Thread.sleep(readingTime);
 
                 library.stopReading();
-                printAction(getName() + ": Went out.");
                 Thread.sleep(restingTime);
 
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                Thread.currentThread().interrupt();
+                break;
             }
         }
     }
 
-    private void printAction(String action) {
-        System.out.println("[ " + action + " ]" );
-    }
 }

@@ -8,34 +8,44 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class LibraryRunner {
-    static void main(String[] args) {
-        int MAX_READERS = 5;
-        int RESTING_TIME = 2000;
-        if(args.length == 2) {
-            MAX_READERS = Integer.parseInt(args[0]);
-            RESTING_TIME = Integer.parseInt(args[1]);
-        }
+    public static void main(String[] args) {
+        int numReaders = 10;
+        int numWriters = 3;
+        int restingTime = 2000;
 
-        Library library = new Library(MAX_READERS);
-        List<Thread> users =  new ArrayList<>();
-
-        for(int i = 0; i < 10; i++) {
-            users.add(new Reader("reader" + i, library, RESTING_TIME));
-        }
-        for(int i = 0; i < 5; i++) {
-            users.add(new Writer("writer" + i, library, RESTING_TIME));
-        }
-
-        for(Thread thread : users) {
-            thread.start();
-        }
-        for(Thread thread : users) {
+        if (args.length >= 2) {
             try {
-                thread.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+                numReaders = Integer.parseInt(args[0]);
+                numWriters = Integer.parseInt(args[1]);
+                if (args.length >= 3) {
+                    restingTime = Integer.parseInt(args[2]);
+                }
+            } catch (NumberFormatException e) {
+                System.err.println("Invalid arguments. Using defaults.");
             }
         }
 
+        Library library = new Library(5);
+        List<Thread> users = new ArrayList<>();
+
+        for (int i = 0; i < numReaders; i++) {
+            users.add(new Reader("Reader-" + (i + 1), library, restingTime));
+        }
+        for (int i = 0; i < numWriters; i++) {
+            users.add(new Writer("Writer-" + (i + 1), library, restingTime));
+        }
+
+        for (Thread thread : users) {
+            thread.start();
+        }
+
+        // Keep main alive since others are non-daemon
+        try {
+            for (Thread thread : users) {
+                thread.join();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

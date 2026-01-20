@@ -5,60 +5,75 @@ import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 
 public class Library {
+    private final int maxReaders;
     private final CopyOnWriteArrayList<Thread> waitingList = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<Thread> runningList = new CopyOnWriteArrayList<>();
 
-    private final Semaphore semaphore;
+    // queueSemaphore ensures strict FIFO for entering the library
+    private final Semaphore queueSemaphore = new Semaphore(1, true);
+    // resourceSemaphore manages access to the library (max maxReaders for readers, all for writer)
+    private final Semaphore resourceSemaphore;
 
     public Library(int maxReaders) {
-        semaphore = new Semaphore(maxReaders, true);
+        this.maxReaders = maxReaders;
+        this.resourceSemaphore = new Semaphore(maxReaders, true);
     }
 
-    public void startReading() throws InterruptedException {
-
+    public void startReading(int readingTime) throws InterruptedException {
         Thread thread = Thread.currentThread();
 
         synchronized (this) {
             waitingList.add(thread);
-            printState(thread.getName() + " joining the queue.");
+            printState(thread.getName() + " wants to enter.");
+        }
+
+        // Wait in line
+        queueSemaphore.acquire();
+        try {
+            // Once at the front of the queue, wait for resource availability
+            resourceSemaphore.acquire(1);
+            synchronized (this) {
+                waitingList.remove(thread);
+                runningList.add(thread);
+                printState(thread.getName() + " is inside. Reading for " +  readingTime + " ms.");
+            }
+        } finally {
+            queueSemaphore.release();
         }
 
 
-        semaphore.acquire(1);
-
-        synchronized (this) {
-            waitingList.remove(thread);
-            runningList.add(thread);
-
-            printState(thread.getName() + " going inside the library.");
-        }
     }
 
-    public void stopReading() throws InterruptedException {
+    public void stopReading() {
         Thread thread = Thread.currentThread();
 
         synchronized (this) {
-            printState(thread.getName() + " going outside the library.");
-            runningList.remove(Thread.currentThread());
+            runningList.remove(thread);
+            printState(thread.getName() + " leaves.");
         }
-        semaphore.release(1);
+        resourceSemaphore.release(1);
     }
 
-    public void startWriting() throws InterruptedException {
+    public void startWriting(int writingTime) throws InterruptedException {
         Thread thread = Thread.currentThread();
 
         synchronized (this) {
             waitingList.add(thread);
-            printState(thread.getName() + " joining the queue.");
+            printState(thread.getName() + " wants to enter.");
         }
 
-        semaphore.acquire(5);
-
-        synchronized (this) {
-            waitingList.remove(thread);
-            runningList.add(thread);
-
-            printState(thread.getName() + " going inside the library.");
+        // Wait in line
+        queueSemaphore.acquire();
+        try {
+            // Once at the front of the queue, wait for all permits to ensure exclusivity
+            resourceSemaphore.acquire(maxReaders);
+            synchronized (this) {
+                waitingList.remove(thread);
+                runningList.add(thread);
+                printState(thread.getName() + " is inside. Reading for " +  writingTime + " ms.");
+            }
+        } finally {
+            queueSemaphore.release();
         }
     }
 
@@ -66,27 +81,25 @@ public class Library {
         Thread thread = Thread.currentThread();
 
         synchronized (this) {
-            printState(thread.getName() + " going outside the library.");
-            runningList.remove(Thread.currentThread());
+            runningList.remove(thread);
+            printState(thread.getName() + " leaves.");
         }
-        semaphore.release(5);
+        resourceSemaphore.release(maxReaders);
     }
 
     private synchronized void printState(String message) {
-        System.out.println("==================================================");
         System.out.println("Event: " + message);
-        System.out.println("==================================================");
 
         String outside = waitingList.stream()
-                .map(Thread::toString)
-                .collect(Collectors.joining(","));
+                .map(Thread::getName)
+                .collect(Collectors.joining(", "));
 
-        String inside = waitingList.stream()
-                .map(Thread::toString)
-                .collect(Collectors.joining(","));
+        String inside = runningList.stream()
+                .map(Thread::getName)
+                .collect(Collectors.joining(", "));
 
-        System.out.println("Currently waiting " + waitingList.size() + ": " + outside);
-        System.out.println("Currently inside " + runningList.size() + ": " + inside);
-        System.out.println();
+        System.out.println("In queue (" + waitingList.size() + ") : " + outside);
+        System.out.println("Inside (" + runningList.size() + ") : " + inside);
+        System.out.println("--------------------------------------------------");
     }
 }
