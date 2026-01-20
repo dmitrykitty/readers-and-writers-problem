@@ -2,6 +2,9 @@ package com.dnikitin.threads;
 
 import com.dnikitin.model.Library;
 
+/**
+ * Represents a Writer thread that repeatedly attempts to write to the library.
+ */
 public class Writer extends Thread {
     private final int restingTime;
     private final Library library;
@@ -11,6 +14,9 @@ public class Writer extends Thread {
         this.library = library;
     }
 
+    /**
+     * Core execution loop. Cycles between writing and resting.
+     */
     @Override
     public void run() {
         while (true) {

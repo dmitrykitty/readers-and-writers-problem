@@ -7,7 +7,18 @@ import com.dnikitin.threads.Writer;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Entry point for the Readers-Writers simulation.
+ * Handles command-line arguments and initializes the environment.
+ */
 public class LibraryRunner {
+    /**
+     * Main method to start the simulation.
+     * * @param args Command-line arguments:
+     * args[0] - Number of readers (default: 10)
+     * args[1] - Number of writers (default: 3)
+     * args[2] - Resting time in ms (default: 2000)
+     */
     public static void main(String[] args) {
         int numReaders = 10;
         int numWriters = 3;
