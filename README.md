@@ -1,31 +1,27 @@
 # Readers-Writers Synchronization Project
 
 ## Project Overview
-This project provides a solution to the classic [**Readers-Writers Problem**](https://en.wikipedia.org/wiki/Readers%E2%80%93writers_problem) using Java's concurrency utilities. The implementation ensures that:
+This project provides a modern solution to the classic [**Readers-Writers Problem**](https://en.wikipedia.org/wiki/Readers%E2%80%93writers_problem) using Java's latest concurrency utilities. The implementation ensures that:
 1. Up to **5 concurrent readers** can access the library.
 2. **Writers obtain exclusive access**, meaning no other readers or writers can be inside simultaneously.
-3. The system follows a **Strict FIFO (First-In-First-Out)** entry order.
+3. The system enforces **Strict FIFO (First-In-First-Out)** entry order and prevents starvation.
 
-## The Dual-Semaphore (Turnstile) Solution
+## Implementation Strategy: Single Fair Semaphore
+The current implementation successfully achieves synchronization and starvation prevention using a single **Fair Semaphore**.
 
-### Why One Semaphore is Insufficient
-In a naive implementation using a single `resourceSemaphore` with 5 permits:
-* **Writer Starvation:** If the library is full of readers and a writer arrives, the writer must wait. However, if new readers continue to arrive, they might see a free slot (as readers exit one by one) and "jump" the queue ahead of the writer because their request for 1 permit can be fulfilled immediately, while the writer's request for 5 cannot.
-* **FIFO Violation:** Even with the `fair` flag set to true, a reader arriving after a writer might still be granted entry if the writer is currently blocked waiting for a full set of permits.
+### Why a Single Semaphore Works here:
+* **Fair Policy:** The `resourceSemaphore` is initialized with `fair = true`. In Java, this ensures that threads are granted permits in the exact order they requested them (FIFO).
+* **Starvation Prevention:** When a writer requests 5 permits (`MAX_READERS`), it blocks at the head of the queue. Even if some permits are free, new readers requesting 1 permit cannot "jump" the queue because the fair policy respects the writer's position at the front.
+* **Virtual Threads Integration:** By utilizing **Java 25 Virtual Threads**, the system handles thousands of concurrent actors with minimal overhead. Since virtual threads are daemons, the `LibraryRunner` utilizes `t.join()` to ensure the simulation continues until all tasks are processed.
 
-### The Turnstile Pattern Implementation
-To solve these issues, the project uses two semaphores:
-1. **`queueSemaphore` (The Turnstile):** A fair binary semaphore (1 permit). It acts as a single-entry gate.
-2. **`resourceSemaphore` (The Library):** A fair semaphore with 5 permits managing actual room capacity.
-
-**How it works:**
-Every actor (Reader or Writer) must first acquire the `queueSemaphore`.
-* A writer holding the turnstile will wait for all 5 resource permits to be freed.
-* While the writer is waiting, any newly arriving readers are blocked at the `queueSemaphore`.
-* This prevents new readers from "sneaking in" and ensures the writer gets the next available turn, effectively eliminating starvation and enforcing strict FIFO ordering.
+### Alternative Solution: The Turnstile Pattern
+While this project demonstrates the effectiveness of a single fair semaphore, a classical academic solution involves a **Dual-Semaphore (Turnstile)** pattern.
+* That approach uses an additional binary semaphore (`queueSemaphore`) to act as a gate, ensuring threads "check in" before attempting to acquire the resource.
+* Although not strictly necessary in this Java implementation due to the robust "fair" policy of `java.util.concurrent.Semaphore`, the Turnstile pattern remains a significant theoretical alternative for systems where semaphore fairness is not guaranteed by the runtime environment.
 
 ## Technical Stack
 * **Language:** Java 25
+* **Concurrency:** Virtual Threads
 * **Build Tool:** Maven
 * **Testing:** JUnit 5, Mockito, AssertJ
-* **Quality Assurance:** SonarCube for Code Coverage
+* **Quality Assurance:** SonarCube & JaCoCo for Code Coverage

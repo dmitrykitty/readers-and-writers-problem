@@ -1,5 +1,6 @@
 package com.dnikitin.model;
 
+import java.util.LinkedList;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
@@ -11,8 +12,8 @@ import java.util.stream.Collectors;
  */
 public class Library {
     private final int MAX_READERS = 5;
-    private final CopyOnWriteArrayList<Thread> waitingList = new CopyOnWriteArrayList<>();
-    private final CopyOnWriteArrayList<Thread> runningList = new CopyOnWriteArrayList<>();
+    private final LinkedList<Thread> waitingList = new LinkedList<>();
+    private final LinkedList<Thread> runningList = new LinkedList<>();
 
     // manages access to the library (max maxReaders for readers, all for writer) and FIFO order
     private final Semaphore resourceSemaphore = new Semaphore(MAX_READERS, true);
@@ -32,8 +33,6 @@ public class Library {
             waitingList.add(thread);
             printState(thread.getName() + " wants to enter.");
         }
-
-        // Wait in line
 
         // Once at the front of the queue, wait for resource availability
         resourceSemaphore.acquire(1);
@@ -74,7 +73,6 @@ public class Library {
             printState(thread.getName() + " wants to enter.");
         }
 
-        // Wait in line
         // Once at the front of the queue, wait for all permits to ensure exclusivity
         resourceSemaphore.acquire(MAX_READERS);
         synchronized (this) {
