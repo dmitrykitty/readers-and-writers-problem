@@ -1,8 +1,8 @@
 package com.dnikitin;
 
-import com.dnikitin.actors.Library;
-import com.dnikitin.actors.Reader;
-import com.dnikitin.actors.Writer;
+import com.dnikitin.model.Library;
+import com.dnikitin.threads.Reader;
+import com.dnikitin.threads.Writer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +25,7 @@ public class LibraryRunner {
             }
         }
 
-        Library library = new Library(5);
+        Library library = new Library();
         List<Thread> users = new ArrayList<>();
 
         for (int i = 0; i < numReaders; i++) {

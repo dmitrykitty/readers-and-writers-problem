@@ -1,9 +1,11 @@
-package com.dnikitin.actors;
+package com.dnikitin.threads;
 
-public class Reader extends Thread {
+import com.dnikitin.model.Library;
+
+public class Writer extends Thread {
     private final int restingTime;
     private final Library library;
-    public Reader(String name, Library library, int restingTime) {
+    public Writer(String name, Library library, int restingTime) {
         super(name);
         this.restingTime = restingTime;
         this.library = library;
@@ -13,12 +15,13 @@ public class Reader extends Thread {
     public void run() {
         while (true) {
             try {
-                int readingTime = 1000 + (int)(Math.random() * 2001);
-                library.startReading(readingTime);
+                int writingTime = 1000 + (int)(Math.random() * 2001);
+                library.startWriting(writingTime);
 
-                Thread.sleep(readingTime);
 
-                library.stopReading();
+                Thread.sleep(writingTime);
+
+                library.stopWriting();
                 Thread.sleep(restingTime);
 
             } catch (InterruptedException e) {

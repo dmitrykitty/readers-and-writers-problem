@@ -1,11 +1,11 @@
-package com.dnikitin.actors;
+package com.dnikitin.model;
 
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 
 public class Library {
-    private final int maxReaders;
+    private final int MAX_READERS = 5;
     private final CopyOnWriteArrayList<Thread> waitingList = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<Thread> runningList = new CopyOnWriteArrayList<>();
 
@@ -14,9 +14,8 @@ public class Library {
     // resourceSemaphore manages access to the library (max maxReaders for readers, all for writer)
     private final Semaphore resourceSemaphore;
 
-    public Library(int maxReaders) {
-        this.maxReaders = maxReaders;
-        this.resourceSemaphore = new Semaphore(maxReaders, true);
+    public Library() {
+        this.resourceSemaphore = new Semaphore(MAX_READERS, true);
     }
 
     public void startReading(int readingTime) throws InterruptedException {
@@ -66,7 +65,7 @@ public class Library {
         queueSemaphore.acquire();
         try {
             // Once at the front of the queue, wait for all permits to ensure exclusivity
-            resourceSemaphore.acquire(maxReaders);
+            resourceSemaphore.acquire(MAX_READERS);
             synchronized (this) {
                 waitingList.remove(thread);
                 runningList.add(thread);
@@ -84,7 +83,7 @@ public class Library {
             runningList.remove(thread);
             printState(thread.getName() + " leaves.");
         }
-        resourceSemaphore.release(maxReaders);
+        resourceSemaphore.release(MAX_READERS);
     }
 
     private synchronized void printState(String message) {
