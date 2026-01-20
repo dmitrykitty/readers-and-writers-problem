@@ -10,15 +10,16 @@ class WriterTest {
     @Test
     void testWriterFullCycleAndInterrupt() throws InterruptedException {
         Library mockLibrary = mock(Library.class);
-        Writer writer = new Writer("Writer-1", mockLibrary, 10);
+        Writer writer = new Writer(mockLibrary, 10);
+        Thread vThread = Thread.ofVirtual().name("Writer-1").start(writer);
 
-        writer.start();
         //wait max for 5 sec until stopWriting will be executed
         verify(mockLibrary, timeout(5000)).stopWriting();
+        Thread.sleep(100);
 
-        writer.interrupt();
-        writer.join(1000);
-        assertFalse(writer.isAlive());
+        vThread.interrupt();
+        vThread.join(1000);
+        assertFalse(vThread.isAlive());
     }
 
     @Test
@@ -26,10 +27,11 @@ class WriterTest {
         Library mockLibrary = mock(Library.class);
         doThrow(new InterruptedException()).when(mockLibrary).startWriting(anyInt());
 
-        Writer writer = new Writer("Writer-1", mockLibrary, 10);
-        writer.start();
-        writer.join(1000);
+        Writer writer = new Writer(mockLibrary, 10);
+        Thread vThread = Thread.ofVirtual().name("Writer-1").start(writer);
 
-        assertFalse(writer.isAlive());
+        vThread.join(1000);
+
+        assertFalse(vThread.isAlive());
     }
 }

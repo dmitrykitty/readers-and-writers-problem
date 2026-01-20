@@ -14,17 +14,15 @@ public class Library {
     private final CopyOnWriteArrayList<Thread> waitingList = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<Thread> runningList = new CopyOnWriteArrayList<>();
 
-    // ensures strict FIFO for entering the library
-    private final Semaphore queueSemaphore = new Semaphore(1, true);
-    // manages access to the library (max maxReaders for readers, all for writer)
+    // manages access to the library (max maxReaders for readers, all for writer) and FIFO order
     private final Semaphore resourceSemaphore = new Semaphore(MAX_READERS, true);
 
 
     /**
      * Requests entry for a reader.
      * Uses a turnstile to maintain arrival order and then acquires a single resource permit.
-     * @param readingTime Duration in ms for the simulated reading task.
      *
+     * @param readingTime Duration in ms for the simulated reading task.
      * @throws InterruptedException if the thread is interrupted while waiting.
      */
     public void startReading(int readingTime) throws InterruptedException {
@@ -36,17 +34,13 @@ public class Library {
         }
 
         // Wait in line
-        queueSemaphore.acquire();
-        try {
-            // Once at the front of the queue, wait for resource availability
-            resourceSemaphore.acquire(1);
-            synchronized (this) {
-                waitingList.remove(thread);
-                runningList.add(thread);
-                printState(thread.getName() + " is inside. Reading for " + readingTime + " ms.");
-            }
-        } finally {
-            queueSemaphore.release();
+
+        // Once at the front of the queue, wait for resource availability
+        resourceSemaphore.acquire(1);
+        synchronized (this) {
+            waitingList.remove(thread);
+            runningList.add(thread);
+            printState(thread.getName() + " is inside. Reading for " + readingTime + " ms.");
         }
 
 
@@ -68,6 +62,7 @@ public class Library {
     /**
      * Requests entry for a writer.
      * Acquires the turnstile and all resource permits to ensure exclusive access.
+     *
      * @param writingTime Duration in ms for the simulated writing task.
      * @throws InterruptedException if the thread is interrupted while waiting.
      */
@@ -80,18 +75,14 @@ public class Library {
         }
 
         // Wait in line
-        queueSemaphore.acquire();
-        try {
-            // Once at the front of the queue, wait for all permits to ensure exclusivity
-            resourceSemaphore.acquire(MAX_READERS);
-            synchronized (this) {
-                waitingList.remove(thread);
-                runningList.add(thread);
-                printState(thread.getName() + " is inside. Reading for " + writingTime + " ms.");
-            }
-        } finally {
-            queueSemaphore.release();
+        // Once at the front of the queue, wait for all permits to ensure exclusivity
+        resourceSemaphore.acquire(MAX_READERS);
+        synchronized (this) {
+            waitingList.remove(thread);
+            runningList.add(thread);
+            printState(thread.getName() + " is inside. Writing for " + writingTime + " ms.");
         }
+
     }
 
     /**

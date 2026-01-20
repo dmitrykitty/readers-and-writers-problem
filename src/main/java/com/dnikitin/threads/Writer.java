@@ -2,14 +2,15 @@ package com.dnikitin.threads;
 
 import com.dnikitin.model.Library;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 /**
  * Represents a Writer thread that repeatedly attempts to write to the library.
  */
-public class Writer extends Thread {
+public class Writer implements Runnable {
     private final int restingTime;
     private final Library library;
-    public Writer(String name, Library library, int restingTime) {
-        super(name);
+    public Writer(Library library, int restingTime) {
         this.restingTime = restingTime;
         this.library = library;
     }
@@ -19,9 +20,9 @@ public class Writer extends Thread {
      */
     @Override
     public void run() {
-        while (true) {
+        while (!Thread.currentThread().isInterrupted()) {
             try {
-                int writingTime = 1000 + (int)(Math.random() * 2001);
+                int writingTime = ThreadLocalRandom.current().nextInt(1000, 3001);
                 library.startWriting(writingTime);
 
 
@@ -30,9 +31,8 @@ public class Writer extends Thread {
                 library.stopWriting();
                 Thread.sleep(restingTime);
 
-            } catch (InterruptedException e) {
+            } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
-                break;
             }
         }
     }

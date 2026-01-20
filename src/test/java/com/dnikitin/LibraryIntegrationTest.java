@@ -2,10 +2,12 @@ package com.dnikitin;
 
 import com.dnikitin.model.Library;
 import org.junit.jupiter.api.Test;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -46,7 +48,9 @@ class LibraryIntegrationTest {
                 library.startWriting(10);
                 entryOrder.add("Writer-1");
                 library.stopWriting();
-            } catch (InterruptedException ignored) {}
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         });
 
         // 3. Create a second Reader thread that should queue behind the Writer
@@ -56,7 +60,9 @@ class LibraryIntegrationTest {
                 library.startReading(10);
                 entryOrder.add("Reader-2");
                 library.stopReading();
-            } catch (InterruptedException ignored) {}
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         });
 
         writerThread.start();

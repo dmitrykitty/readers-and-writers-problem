@@ -2,15 +2,16 @@ package com.dnikitin.threads;
 
 import com.dnikitin.model.Library;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 /**
  * Represents a Reader thread that repeatedly attempts to read from the library.
  */
-public class Reader extends Thread {
+public class Reader implements Runnable {
     private final int restingTime;
     private final Library library;
 
-    public Reader(String name, Library library, int restingTime) {
-        super(name);
+    public Reader(Library library, int restingTime) {
         this.restingTime = restingTime;
         this.library = library;
     }
@@ -20,9 +21,9 @@ public class Reader extends Thread {
      */
     @Override
     public void run() {
-        while (true) {
+        while (!Thread.currentThread().isInterrupted()) {
             try {
-                int readingTime = 1000 + (int) (Math.random() * 2001);
+                int readingTime = ThreadLocalRandom.current().nextInt(1000, 3001);
                 library.startReading(readingTime);
 
                 Thread.sleep(readingTime);
@@ -30,9 +31,8 @@ public class Reader extends Thread {
                 library.stopReading();
                 Thread.sleep(restingTime);
 
-            } catch (InterruptedException e) {
+            } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
-                break;
             }
         }
     }

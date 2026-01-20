@@ -12,17 +12,17 @@ class ReaderTest {
     @Test
     void testReaderFullCycleAndInterrupt() throws InterruptedException {
         Library mockLibrary = mock(Library.class);
-        Reader reader = new Reader("Reader-1", mockLibrary, 10);
-
-        reader.start();
+        Reader reader = new Reader(mockLibrary, 10);
+        Thread vThread = Thread.ofVirtual().name("Reader-1").start(reader);
 
         //wait max for 5 sec until stopReading will be executed
         verify(mockLibrary, timeout(5000)).stopReading();
+        Thread.sleep(100);
 
-        reader.interrupt();
-        reader.join(1000);
+        vThread.interrupt();
+        vThread.join(1000);
 
-        assertFalse(reader.isAlive());
+        assertFalse(vThread.isAlive());
     }
 
     @Test
@@ -31,10 +31,11 @@ class ReaderTest {
         // throw exception after start reading
         doThrow(new InterruptedException()).when(mockLibrary).startReading(anyInt());
 
-        Reader reader = new Reader("Reader-1", mockLibrary, 10);
-        reader.start();
-        reader.join(1000);
+        Reader reader = new Reader(mockLibrary, 10);
+        Thread vThread = Thread.ofVirtual().name("Reader-1").start(reader);
 
-        assertFalse(reader.isAlive());
+        vThread.join(1000);
+
+        assertFalse(vThread.isAlive());
     }
 }

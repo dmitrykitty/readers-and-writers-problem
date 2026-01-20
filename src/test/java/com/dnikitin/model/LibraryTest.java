@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class LibraryTest {
@@ -22,10 +23,12 @@ public class LibraryTest {
     @Test
     @Timeout(value = 5)
     void shouldAllowMultipleReadersUpToLimit() throws InterruptedException {
-        for (int i = 0; i < MAX_READERS; i++) {
-            library.startReading(1000);
-        }
-        library.stopReading();
+        assertDoesNotThrow(() -> {
+            for (int i = 0; i < MAX_READERS; i++) {
+                library.startReading(1000);
+            }
+            library.stopReading();
+        });
     }
 
     @Test
@@ -36,7 +39,9 @@ public class LibraryTest {
         Thread readerThread = new Thread(() -> {
             try {
                 library.startReading(1000);
-            } catch (InterruptedException ignored) {}
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         });
 
         readerThread.start();
@@ -83,11 +88,14 @@ public class LibraryTest {
     }
 
     @Test
+    @Timeout(value = 1)
     void shouldCorrectlyUpdateListsOnStop() throws InterruptedException {
-        library.startReading(1000);
-        library.stopReading();
-        // if writer able to get in - reader leaved the library
-        library.startWriting(1000);
-        library.stopWriting();
+        assertDoesNotThrow(() -> {
+            library.startReading(1000);
+            library.stopReading();
+            // if writer able to get in - reader leaved the library
+            library.startWriting(1000);
+            library.stopWriting();
+        });
     }
 }
