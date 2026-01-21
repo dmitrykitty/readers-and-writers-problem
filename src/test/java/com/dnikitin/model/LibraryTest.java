@@ -5,8 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class LibraryTest {
     private Library library;
@@ -17,8 +16,8 @@ public class LibraryTest {
         library = new Library();
     }
 
-    /*
-    Checks if all 5 readers get inside
+    /**
+     * Verifies that the library allows multiple readers up to the defined limit (MAX_READERS).
      */
     @Test
     @Timeout(value = 5)
@@ -27,33 +26,52 @@ public class LibraryTest {
             for (int i = 0; i < MAX_READERS; i++) {
                 library.startReading(1000);
             }
-            library.stopReading();
+            assertThat(library.getRunningList()).hasSize(MAX_READERS);
+            assertThat(library.getWaitingList()).isEmpty();
+
+            for (int i = 0; i < MAX_READERS; i++) {
+                library.stopReading();
+            }
+            assertThat(library.getRunningList()).isEmpty();
         });
     }
 
+    /**
+     * Ensures that a writer has exclusive access, blocking readers from entering during its session.
+     */
     @Test
     @Timeout(value = 5)
     void shouldEnsureWriterExclusivity() throws InterruptedException {
-        library.startWriting(1000);
+        // Current thread becomes the Writer
+        library.startWriting(100);
+        assertThat(library.getRunningList()).contains(Thread.currentThread());
 
         Thread readerThread = new Thread(() -> {
             try {
-                library.startReading(1000);
+                library.startReading(100);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         });
 
         readerThread.start();
-        // during this 1 sec reader is blocked by writer
-        Thread.sleep(1000);
+        Thread.sleep(500);
+
+        // Verify that the reader is stuck in the waiting list
+        assertThat(library.getWaitingList()).contains(readerThread);
+        assertThat(library.getRunningList()).doesNotContain(readerThread);
 
         library.stopWriting();
-        // free entracefor reader
+
+        // After writer leaves, reader should move from waiting to running
         readerThread.join(1000);
-        assertThat(readerThread.isAlive()).isFalse();
+        assertThat(library.getRunningList()).contains(readerThread);
+        assertThat(library.getWaitingList()).isEmpty();
     }
 
+    /**
+     * Tests that a reader waiting for entry correctly handles and propagates InterruptedException.
+     */
     @Test
     @Timeout(value = 5)
     void shouldHandleInterruptedExceptionInStartReading() throws InterruptedException {
@@ -68,34 +86,51 @@ public class LibraryTest {
 
         blockedReader.start();
         Thread.sleep(200);
-        blockedReader.interrupt(); // Przerywamy czekanie
+
+        // Assert thread is in waiting list before interruption
+        assertThat(library.getWaitingList()).contains(blockedReader);
+
+        blockedReader.interrupt();
         blockedReader.join();
     }
 
     @Test
     @Timeout(value = 5)
     void shouldHandleInterruptedExceptionInStartWriting() throws InterruptedException {
-        library.startWriting(1000); // Pisarz w środku
+        library.startWriting(1000); // Writer is currently occupying the resource
 
-        Thread blockedWriter = new Thread(() -> {
-            assertThrows(InterruptedException.class, () -> library.startWriting(1000));
-        });
+        Thread blockedWriter = new Thread(() -> assertThrows(InterruptedException.class, () -> library.startWriting(1000)));
 
         blockedWriter.start();
         Thread.sleep(200);
+
+        assertThat(library.getWaitingList()).contains(blockedWriter);
+
         blockedWriter.interrupt();
         blockedWriter.join();
+
+        assertFalse(blockedWriter.isAlive(), "Thread should be terminated after interruption");
     }
 
     @Test
-    @Timeout(value = 1)
+    @Timeout(value = 2)
     void shouldCorrectlyUpdateListsOnStop() throws InterruptedException {
-        assertDoesNotThrow(() -> {
-            library.startReading(1000);
-            library.stopReading();
-            // if writer able to get in - reader leaved the library
-            library.startWriting(1000);
-            library.stopWriting();
-        });
+        // 1. Reader enters
+        library.startReading(100);
+        assertThat(library.getRunningList()).contains(Thread.currentThread());
+        assertThat(library.getWaitingList()).isEmpty();
+
+        // 2. Reader leaves
+        library.stopReading();
+        assertThat(library.getRunningList()).isEmpty();
+
+        // 3. Writer enters
+        library.startWriting(100);
+        assertThat(library.getRunningList()).contains(Thread.currentThread());
+
+        // 4. Writer leaves
+        library.stopWriting();
+        assertThat(library.getRunningList()).isEmpty();
+        assertThat(library.getWaitingList()).isEmpty();
     }
 }

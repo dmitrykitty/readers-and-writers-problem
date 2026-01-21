@@ -33,5 +33,6 @@ class WriterTest {
         vThread.join(1000);
 
         assertFalse(vThread.isAlive());
+        verify(mockLibrary, never()).stopWriting();
     }
 }

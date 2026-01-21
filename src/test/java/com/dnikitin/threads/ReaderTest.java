@@ -28,6 +28,7 @@ class ReaderTest {
     @Test
     void testReaderInterruptedDuringStart() throws InterruptedException {
         Library mockLibrary = mock(Library.class);
+
         // throw exception after start reading
         doThrow(new InterruptedException()).when(mockLibrary).startReading(anyInt());
 
@@ -37,5 +38,6 @@ class ReaderTest {
         vThread.join(1000);
 
         assertFalse(vThread.isAlive());
+        verify(mockLibrary, never()).stopReading();
     }
 }

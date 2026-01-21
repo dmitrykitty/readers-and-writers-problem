@@ -30,10 +30,20 @@ public class LibraryRunner {
 
         if (args.length >= 2) {
             try {
-                numReaders = Integer.parseInt(args[0]);
-                numWriters = Integer.parseInt(args[1]);
+                int maybeNumReaders = Integer.parseInt(args[0]);
+                if(maybeNumReaders >= 0){
+                    numReaders = maybeNumReaders;
+                }
+
+                int maybeNumWriters = Integer.parseInt(args[1]);
+                if(maybeNumWriters >= 0){
+                    numWriters = maybeNumWriters;
+                }
                 if (args.length >= 3) {
-                    restingTime = Integer.parseInt(args[2]);
+                    int maybeRestingTime = Integer.parseInt(args[2]);
+                    if(maybeRestingTime >= 0){
+                        restingTime = maybeRestingTime;
+                    }
                 }
             } catch (NumberFormatException _) {
                 System.err.println("Invalid arguments. Using defaults.");

@@ -7,92 +7,91 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Integration tests for the Library synchronization logic.
- * These tests verify high-level behaviors such as strict FIFO ordering
- * and interaction between different types of actors (Readers and Writers).
- */
 class LibraryIntegrationTest {
 
-    /**
-     * Verifies that the Library enforces strict First-In-First-Out (FIFO) ordering
-     * regardless of the resource requirements.
-     * * Even if a Reader could technically fit into the library alongside another Reader,
-     * the Turnstile pattern must ensure they wait if a Writer arrived before them.
-     *
-     * @throws InterruptedException if any thread is interrupted during the test.
-     */
     @Test
-    void testStrictFIFOOrder() throws InterruptedException {
-        // Initialize the library with a limit of 5 readers
+    void testStrictFIFOOrderWithTimeouts() throws InterruptedException {
         Library library = new Library();
-
-        // list to track the actual order of entry into the library
         List<String> entryOrder = Collections.synchronizedList(new ArrayList<>());
 
-        // Latches are used to control the exact timing of thread arrival at the "door"
-        CountDownLatch latch1 = new CountDownLatch(1);
-        CountDownLatch latch2 = new CountDownLatch(1);
+        // Latches to ensure threads are started and ready to enter the library
+        CountDownLatch writerStarted = new CountDownLatch(1);
+        CountDownLatch readerStarted = new CountDownLatch(1);
 
-        // 1. The first Reader enters immediately and occupies one permit
-        library.startReading(100);
+        // Signals from main to release threads to the library entry protocol
+        CountDownLatch releaseWriter = new CountDownLatch(1);
+        CountDownLatch releaseReader = new CountDownLatch(1);
+
+        // 1. Reader-1 enters immediately and stays inside
+        library.startReading(500);
         entryOrder.add("Reader-1");
 
-        // 2. Create a Writer thread that should queue behind Reader-1
+        // 2. Setup Writer thread (should wait for Reader-1 to leave)
         Thread writerThread = new Thread(() -> {
             try {
-                latch1.await(); // Wait for the explicit signal to arrive
-                library.startWriting(10);
+                writerStarted.countDown();
+                // Use await with timeout returning boolean as requested
+                boolean released = releaseWriter.await(5, TimeUnit.SECONDS);
+                assertTrue(released, "Writer was not released by main thread in time");
+
+                library.startWriting(100);
                 entryOrder.add("Writer-1");
                 library.stopWriting();
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                Thread.currentThread().interrupt();
             }
-        });
+        }, "Writer-Thread");
 
-        // 3. Create a second Reader thread that should queue behind the Writer
+        // 3. Setup second Reader thread (should wait for Writer-1 despite having space)
         Thread readerThread2 = new Thread(() -> {
             try {
-                latch2.await(); // Wait for the explicit signal to arrive
-                library.startReading(10);
+                readerStarted.countDown();
+                boolean released = releaseReader.await(5, TimeUnit.SECONDS);
+                assertTrue(released, "Reader-2 was not released by main thread in time");
+
+                library.startReading(100);
                 entryOrder.add("Reader-2");
                 library.stopReading();
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                Thread.currentThread().interrupt();
             }
-        });
+        }, "Reader-2-Thread");
 
+        // Start Writer and ensure it reaches the semaphore first
         writerThread.start();
+        assertTrue(writerStarted.await(2, TimeUnit.SECONDS), "Writer thread failed to start");
+        releaseWriter.countDown();
+        Thread.sleep(200); // Small buffer for the writer to call resourceSemaphore.acquire()
+
+        // Start Reader-2 and ensure it arrives after the Writer
         readerThread2.start();
+        assertTrue(readerStarted.await(2, TimeUnit.SECONDS), "Reader-2 thread failed to start");
+        releaseReader.countDown();
+        Thread.sleep(200); // Small buffer for reader-2 to join the queue
 
-        // ENFORCING ARRIVAL ORDER:
-        // The Writer signals arrival first
-        latch1.countDown();
-        Thread.sleep(100);  // Buffer to ensure the Writer reaches the queueSemaphore first
+        // VERIFY SYSTEM STATE: Reader-1 is inside, others are waiting
+        assertThat(library.getRunningList()).contains(Thread.currentThread());
+        assertThat(library.getWaitingList()).containsExactly(writerThread, readerThread2);
 
-        // Reader-2 signals arrival second
-        latch2.countDown();
-        Thread.sleep(100);
-
-        // Current State:
-        // Reader-1 is inside.
-        // Writer-1 is at the front of the queue waiting for exclusivity (needs all permits).
-        // Reader-2 is blocked at the Turnstile behind Writer-1.
-
-        // Release Reader-1. According to FIFO, Writer-1 MUST be the next to enter.
+        // 4. Reader-1 leaves, triggering the chain reaction
         library.stopReading();
 
-        // Wait for asynchronous threads to complete their operations
-        writerThread.join(2000);
-        readerThread2.join(2000);
+        // Join threads with timeout to ensure the whole system completes
+        writerThread.join(3000);
+        readerThread2.join(3000);
 
-        // VERIFICATION:
-        // Expected entry order: Reader-1 (initial), then Writer-1, then Reader-2
-        assertEquals("Reader-1", entryOrder.get(0), "Reader-1 should be first.");
-        assertEquals("Writer-1", entryOrder.get(1), "Writer-1 should follow Reader-1 due to FIFO.");
-        assertEquals("Reader-2", entryOrder.get(2), "Reader-2 should be last, having arrived after the Writer.");
+        // FINAL VERIFICATION: Strict FIFO must be maintained
+        assertAll(
+                () -> assertEquals("Reader-1", entryOrder.getFirst(), "Reader-1 should be the first inside"),
+                () -> assertEquals("Writer-1", entryOrder.get(1), "Writer-1 must follow Reader-1 due to FIFO fair policy"),
+                () -> assertEquals("Reader-2", entryOrder.get(2), "Reader-2 must wait for the Writer even if space is available"),
+                () -> assertThat(library.getRunningList()).isEmpty(),
+                () -> assertThat(library.getWaitingList()).isEmpty()
+        );
     }
 }

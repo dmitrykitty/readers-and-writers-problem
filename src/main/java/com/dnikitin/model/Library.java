@@ -1,7 +1,8 @@
 package com.dnikitin.model;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.stream.Collectors;
 
@@ -94,6 +95,16 @@ public class Library {
             printState(thread.getName() + " leaves.");
         }
         resourceSemaphore.release(MAX_READERS);
+    }
+
+    //for test purpose
+    public List<Thread> getRunningList() {
+        return new LinkedList<>(runningList);
+    }
+
+    //for test purpose
+    public List<Thread> getWaitingList() {
+        return new ArrayList<>(waitingList);
     }
 
     private synchronized void printState(String message) {
